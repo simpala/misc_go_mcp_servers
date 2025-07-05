@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
+	md "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/JohannesKaufmann/html-to-markdown/plugin"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	// md "github.com/JohannesKaufmann/html-to-markdown"
-	// "github.com/modelcontextprotocol/go-sdk/mcp"
+	// "github.com/modelcontextprotocol/go-sdk/mcp" // This can be removed if not used elsewhere
 )
 
 const defaultSearxngURL = "http://localhost:8080"
@@ -144,63 +145,63 @@ func searxngWebSearchHandler(ctx context.Context, ss *mcp.ServerSession, params 
 	}, nil
 }
 
-// func webURLReadHandler(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallToolParamsFor[WebURLReadInput]) (*mcp.CallToolResultFor[WebURLReadOutput], error) {
-// 	input := params.Arguments
-// 	if input.URL == "" {
-// 		return nil, fmt.Errorf("URL cannot be empty")
-// 	}
+func webURLReadHandler(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallToolParamsFor[WebURLReadInput]) (*mcp.CallToolResultFor[WebURLReadOutput], error) {
+	input := params.Arguments
+	if input.URL == "" {
+		return nil, fmt.Errorf("URL cannot be empty")
+	}
 
-// 	if ss != nil {
-// 		ss.Log(ctx, &mcp.LoggingMessageParams{Level: "debug", Data: fmt.Sprintf("Fetching URL: %s", input.URL)})
-// 	}
+	if ss != nil {
+		ss.Log(ctx, &mcp.LoggingMessageParams{Level: "debug", Data: fmt.Sprintf("Fetching URL: %s", input.URL)})
+	}
 
-// 	req, err := http.NewRequestWithContext(ctx, "GET", input.URL, nil)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to create request for URL %s: %w", input.URL, err)
-// 	}
-// 	req.Header.Set("User-Agent", "MCP-Searxng-Go-Client/1.0")
+	req, err := http.NewRequestWithContext(ctx, "GET", input.URL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for URL %s: %w", input.URL, err)
+	}
+	req.Header.Set("User-Agent", "MCP-Searxng-Go-Client/1.0")
 
-// 	httpClient := &http.Client{Timeout: 30 * time.Second}
-// 	resp, err := httpClient.Do(req)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to fetch URL %s: %w", input.URL, err)
-// 	}
-// 	defer resp.Body.Close()
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch URL %s: %w", input.URL, err)
+	}
+	defer resp.Body.Close()
 
-// 	if resp.StatusCode != http.StatusOK {
-// 		return nil, fmt.Errorf("failed to fetch URL %s with status %d", input.URL, resp.StatusCode)
-// 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch URL %s with status %d", input.URL, resp.StatusCode)
+	}
 
-// 	htmlBody, err := io.ReadAll(resp.Body)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to read response body from %s: %w", input.URL, err)
-// 	}
+	htmlBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body from %s: %w", input.URL, err)
+	}
 
-// 	converter := md.NewConverter("", true, nil)
-// 	converter.Use(plugin.AbsoluteLinks(input.URL))
+	converter := md.NewConverter("", true, nil)
+	converter.Use(plugin.AbsoluteLinks(input.URL))
 
-// 	markdown, err := converter.ConvertString(string(htmlBody))
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to convert HTML to Markdown for %s: %w", input.URL, err)
-// 	}
+	markdown, err := converter.ConvertString(string(htmlBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert HTML to Markdown for %s: %w", input.URL, err)
+	}
 
-// 	title := ""
-// 	if submatch := titleRegex.FindStringSubmatch(string(htmlBody)); len(submatch) > 1 {
-// 		title = submatch[1]
-// 	}
+	title := ""
+	if submatch := titleRegex.FindStringSubmatch(string(htmlBody)); len(submatch) > 1 {
+		title = submatch[1]
+	}
 
-// 	output := WebURLReadOutput{
-// 		MarkdownContent: markdown,
-// 		URL:             input.URL,
-// 		Title:           title,
-// 	}
+	output := WebURLReadOutput{
+		MarkdownContent: markdown,
+		URL:             input.URL,
+		Title:           title,
+	}
 
-// 	return &mcp.CallToolResultFor[WebURLReadOutput]{
-// 		Content: []mcp.Content{
-// 			&mcp.TextContent{Text: markdown},
-// 		},
-// 		StructuredContent: output,
-// 	}, nil
-// }
+	return &mcp.CallToolResultFor[WebURLReadOutput]{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: markdown},
+		},
+		StructuredContent: output,
+	}, nil
+}
 
 var titleRegex = regexp.MustCompile(`(?i)<title>(.*?)</title>`)
