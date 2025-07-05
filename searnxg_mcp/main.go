@@ -34,12 +34,12 @@ func main() {
 	server.AddTools(searxngWebSearchTool)
 
 	// 3. Create and add the web_url_read tool
-	// webURLReadTool := mcp.NewServerTool(
-	// 	"web_url_read",
-	// 	"Read and convert the content from a URL to markdown.",
-	// 	webURLReadHandler,
-	// )
-	//server.AddTools(webURLReadTool)
+	webURLReadTool := mcp.NewServerTool(
+		"web_url_read",
+		"Read and convert the content from a URL to markdown.",
+		webURLReadHandler,
+	)
+	server.AddTools(webURLReadTool)
 
 	log.Printf("%s v%s starting...", serverName, serverVersion)
 
