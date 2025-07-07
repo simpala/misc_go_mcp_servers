@@ -1,0 +1,341 @@
+[
+  // Setup: Create initial directories and a file
+  {
+    "id": "setup_initial_dirs",
+    "tool_name": "apply_filesystem_manifest",
+    "arguments": {
+      "operations": [
+        {"type": "create_directory", "path": "test_sandbox"},
+        {"type": "create_directory", "path": "test_sandbox/dir1"},
+        {"type": "create_directory", "path": "test_sandbox/dir2"},
+        {"type": "create_directory", "path": "test_sandbox/dir1/subdir1"},
+        {"type": "create_file", "path": "test_sandbox/file1.txt", "content": "Hello from file1.txt"},
+        {"type": "create_file", "path": "test_sandbox/dir1/file_in_dir1.txt", "content": "Content for file in dir1"},
+        {"type": "create_file", "path": "test_sandbox/dir1/subdir1/.hidden_file", "content": "Hidden content"}
+      ]
+    }
+  },
+
+  // Test list_directory
+  {
+    "id": "list_root_sandbox_non_recursive",
+    "tool_name": "list_directory",
+    "arguments": {"path": "test_sandbox"}
+  },
+  {
+    "id": "list_root_sandbox_recursive_depth1",
+    "tool_name": "list_directory",
+    "arguments": {"path": "test_sandbox", "recursive": true, "max_depth": 1}
+  },
+  {
+    "id": "list_root_sandbox_recursive_full",
+    "tool_name": "list_directory",
+    "arguments": {"path": "test_sandbox", "recursive": true}
+  },
+  {
+    "id": "list_root_sandbox_recursive_include_hidden",
+    "tool_name": "list_directory",
+    "arguments": {"path": "test_sandbox", "recursive": true, "include_hidden": true}
+  },
+  {
+    "id": "list_nonexistent_dir",
+    "tool_name": "list_directory",
+    "arguments": {"path": "test_sandbox/nonexistent"}
+  },
+
+  // Test write_file & read_file
+  {
+    "id": "write_new_file_utf8",
+    "tool_name": "write_file",
+    "arguments": {"path": "test_sandbox/new_file.txt", "content": "New file content."}
+  },
+  {
+    "id": "read_new_file_utf8",
+    "tool_name": "read_file",
+    "arguments": {"path": "test_sandbox/new_file.txt"}
+  },
+  {
+    "id": "append_to_file_utf8",
+    "tool_name": "write_file",
+    "arguments": {"path": "test_sandbox/new_file.txt", "content": " Appended content.", "append": true}
+  },
+  {
+    "id": "read_appended_file_utf8",
+    "tool_name": "read_file",
+    "arguments": {"path": "test_sandbox/new_file.txt"}
+  },
+  {
+    "id": "overwrite_file_utf8",
+    "tool_name": "write_file",
+    "arguments": {"path": "test_sandbox/new_file.txt", "content": "Overwritten content."}
+  },
+  {
+    "id": "read_overwritten_file_utf8",
+    "tool_name": "read_file",
+    "arguments": {"path": "test_sandbox/new_file.txt"}
+  },
+  {
+    "id": "write_file_base64",
+    "tool_name": "write_file",
+    "arguments": {"path": "test_sandbox/base64_file.txt", "content": "SGVsbG8gQkFTRTY0IQ==", "encoding": "base64"}
+  },
+  {
+    "id": "read_file_base64_as_base64",
+    "tool_name": "read_file",
+    "arguments": {"path": "test_sandbox/base64_file.txt", "encoding": "base64"}
+  },
+  {
+    "id": "read_file_base64_as_utf8",
+    "tool_name": "read_file",
+    "arguments": {"path": "test_sandbox/base64_file.txt", "encoding": "utf-8"}
+  },
+
+  // Test get_item_properties & item_exists
+  {
+    "id": "properties_of_file1",
+    "tool_name": "get_item_properties",
+    "arguments": {"path": "test_sandbox/file1.txt"}
+  },
+  {
+    "id": "properties_of_dir1",
+    "tool_name": "get_item_properties",
+    "arguments": {"path": "test_sandbox/dir1"}
+  },
+  {
+    "id": "properties_of_nonexistent",
+    "tool_name": "get_item_properties",
+    "arguments": {"path": "test_sandbox/nonexistent_prop"}
+  },
+  {
+    "id": "exists_file1",
+    "tool_name": "item_exists",
+    "arguments": {"path": "test_sandbox/file1.txt"}
+  },
+  {
+    "id": "exists_dir1",
+    "tool_name": "item_exists",
+    "arguments": {"path": "test_sandbox/dir1"}
+  },
+  {
+    "id": "exists_nonexistent",
+    "tool_name": "item_exists",
+    "arguments": {"path": "test_sandbox/nonexistent_exists"}
+  },
+
+  // Test copy_item
+  {
+    "id": "copy_file1_to_file2",
+    "tool_name": "copy_item",
+    "arguments": {"source_path": "test_sandbox/file1.txt", "destination_path": "test_sandbox/file2.txt"}
+  },
+  {
+    "id": "read_copied_file2",
+    "tool_name": "read_file",
+    "arguments": {"path": "test_sandbox/file2.txt"}
+  },
+  {
+    "id": "copy_dir1_to_dir1_copy_no_overwrite_fail",
+    "tool_name": "copy_item",
+    "arguments": {"source_path": "test_sandbox/dir1", "destination_path": "test_sandbox/dir1_copy"}
+  },
+   {
+    "id": "copy_dir1_to_dir1_copy_again_fail",
+    "tool_name": "copy_item",
+    "arguments": {"source_path": "test_sandbox/dir1", "destination_path": "test_sandbox/dir1_copy", "overwrite": false}
+  },
+  {
+    "id": "copy_dir1_to_dir1_copy_overwrite_succeed",
+    "tool_name": "copy_item",
+    "arguments": {"source_path": "test_sandbox/dir2", "destination_path": "test_sandbox/dir1_copy", "overwrite": true}
+  },
+  {
+    "id": "list_dir1_copy_after_overwrite",
+    "tool_name": "list_directory",
+    "arguments": {"path": "test_sandbox/dir1_copy", "recursive": true, "include_hidden": true}
+  },
+
+
+  // Test move_item
+  {
+    "id": "move_file2_to_dir2_file2_moved",
+    "tool_name": "move_item",
+    "arguments": {"source_path": "test_sandbox/file2.txt", "destination_path": "test_sandbox/dir2/file2_moved.txt"}
+  },
+  {
+    "id": "exists_old_file2_false",
+    "tool_name": "item_exists",
+    "arguments": {"path": "test_sandbox/file2.txt"}
+  },
+  {
+    "id": "exists_moved_file2_true",
+    "tool_name": "item_exists",
+    "arguments": {"path": "test_sandbox/dir2/file2_moved.txt"}
+  },
+  {
+    "id": "rename_dir1_copy_to_dir_renamed",
+    "tool_name": "move_item",
+    "arguments": {"source_path": "test_sandbox/dir1_copy", "destination_path": "test_sandbox/dir_renamed"}
+  },
+  {
+    "id": "list_dir_renamed",
+    "tool_name": "list_directory",
+    "arguments": {"path": "test_sandbox/dir_renamed", "recursive": true}
+  },
+
+  // Test create_archive & extract_archive
+  {
+    "id": "create_another_sandbox_dir",
+    "tool_name": "apply_filesystem_manifest",
+    "arguments": {"operations": [{"type": "create_directory", "path": "another_sandbox"}]}
+  },
+  {
+    "id": "create_zip_archive_from_files",
+    "tool_name": "create_archive",
+    "arguments": {
+      "source_paths": ["test_sandbox/file1.txt", "test_sandbox/new_file.txt"],
+      "archive_path": "test_sandbox/files_archive.zip",
+      "format": "zip"
+    }
+  },
+  {
+    "id": "extract_zip_archive_files",
+    "tool_name": "extract_archive",
+    "arguments": {"archive_path": "test_sandbox/files_archive.zip", "destination_path": "another_sandbox/extracted_files_zip"}
+  },
+  {
+    "id": "list_extracted_zip_files",
+    "tool_name": "list_directory",
+    "arguments": {"path": "another_sandbox/extracted_files_zip", "recursive": true}
+  },
+    {
+    "id": "create_targz_archive_from_dir_renamed",
+    "tool_name": "create_archive",
+    "arguments": {
+      "source_paths": ["test_sandbox/dir_renamed"],
+      "archive_path": "test_sandbox/dir_renamed_archive.tar.gz",
+      "format": "tar.gz"
+    }
+  },
+  {
+    "id": "extract_targz_archive_dir",
+    "tool_name": "extract_archive",
+    "arguments": {"archive_path": "test_sandbox/dir_renamed_archive.tar.gz", "destination_path": "another_sandbox/extracted_dir_targz"}
+  },
+  {
+    "id": "list_extracted_targz_dir",
+    "tool_name": "list_directory",
+    "arguments": {"path": "another_sandbox/extracted_dir_targz", "recursive": true, "include_hidden": true}
+  },
+
+  // Test delete_item
+  {
+    "id": "delete_single_file_base64",
+    "tool_name": "delete_item",
+    "arguments": {"path": "test_sandbox/base64_file.txt"}
+  },
+  {
+    "id": "exists_deleted_base64_file_false",
+    "tool_name": "item_exists",
+    "arguments": {"path": "test_sandbox/base64_file.txt"}
+  },
+  {
+    "id": "delete_empty_dir_prep",
+    "tool_name": "apply_filesystem_manifest",
+    "arguments": {"operations": [{"type": "create_directory", "path": "test_sandbox/empty_dir_to_delete"}]}
+  },
+  {
+    "id": "delete_empty_dir_non_recursive",
+    "tool_name": "delete_item",
+    "arguments": {"path": "test_sandbox/empty_dir_to_delete", "recursive": false}
+  },
+  {
+    "id": "exists_deleted_empty_dir_false",
+    "tool_name": "item_exists",
+    "arguments": {"path": "test_sandbox/empty_dir_to_delete"}
+  },
+  {
+    "id": "delete_dir1_non_recursive_fail",
+    "tool_name": "delete_item",
+    "arguments": {"path": "test_sandbox/dir1", "recursive": false}
+  },
+  {
+    "id": "delete_dir1_recursive_succeed",
+    "tool_name": "delete_item",
+    "arguments": {"path": "test_sandbox/dir1", "recursive": true}
+  },
+  {
+    "id": "exists_deleted_dir1_false",
+    "tool_name": "item_exists",
+    "arguments": {"path": "test_sandbox/dir1"}
+  },
+
+  // Test --allowed-dirs restrictions
+  // Assuming server is run with --allowed-dirs ./test_sandbox --allowed-dirs ./another_sandbox
+  {
+    "id": "write_outside_allowed_fail_root",
+    "tool_name": "write_file",
+    "arguments": {"path": "file_outside.txt", "content": "This should fail."}
+  },
+  {
+    "id": "write_outside_allowed_fail_tmp",
+    "tool_name": "write_file",
+    "arguments": {"path": "/tmp/file_outside.txt", "content": "This should also fail."}
+  },
+   {
+    "id": "write_outside_allowed_fail_relative_up",
+    "tool_name": "write_file",
+    "arguments": {"path": "../file_outside_relative.txt", "content": "This should also fail."}
+  },
+  {
+    "id": "create_dir_outside_allowed_fail",
+    "tool_name": "apply_filesystem_manifest",
+    "arguments": {"operations": [{"type": "create_directory", "path": "test_sandbox_sibling"}]}
+  },
+  {
+    "id": "copy_to_outside_allowed_fail",
+    "tool_name": "copy_item",
+    "arguments": {"source_path": "test_sandbox/file1.txt", "destination_path": "test_sandbox_sibling_copy/file1.txt"}
+  },
+  {
+    "id": "move_to_outside_allowed_fail",
+    "tool_name": "move_item",
+    "arguments": {"source_path": "test_sandbox/new_file.txt", "destination_path": "test_sandbox_sibling_move/new_file.txt"}
+  },
+   {
+    "id": "move_from_outside_allowed_fail",
+    "tool_name": "move_item",
+    "arguments": {"source_path": "../some_other_file.txt", "destination_path": "test_sandbox/imported_file.txt"}
+  },
+  {
+    "id": "delete_outside_allowed_fail",
+    "tool_name": "delete_item",
+    "arguments": {"path": "../another_file_to_delete.txt"}
+  },
+  {
+    "id": "create_archive_outside_allowed_fail",
+    "tool_name": "create_archive",
+    "arguments": {
+      "source_paths": ["test_sandbox/file1.txt"],
+      "archive_path": "my_sneaky_archive.zip",
+      "format": "zip"
+    }
+  },
+  {
+    "id": "extract_archive_to_outside_allowed_fail",
+    "tool_name": "extract_archive",
+    "arguments": {"archive_path": "test_sandbox/files_archive.zip", "destination_path": "my_sneaky_extraction_folder"}
+  },
+
+  // Cleanup (optional, can be commented out or run selectively)
+  // Best to do cleanup manually or with a separate script after verifying results
+  {
+    "id": "cleanup_sandbox_dirs_recursive",
+    "tool_name": "delete_item",
+    "arguments": {"path": "test_sandbox", "recursive": true}
+  },
+    {
+    "id": "cleanup_another_sandbox_dirs_recursive",
+    "tool_name": "delete_item",
+    "arguments": {"path": "another_sandbox", "recursive": true}
+  }
+]
