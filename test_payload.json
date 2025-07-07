@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tool/call",
+  "params": {
+    "name": "apply_filesystem_manifest",
+    "arguments": {
+      "operations": [
+        {"type": "create_directory", "path": "./output_test/bvh_project"},
+        {"type": "create_file", "path": "./output_test/bvh_project/bvh_tree.py", "content": "class BVHNode: pass"},
+        {"type": "create_file", "path": "./output_test/bvh_project/test_bvh_tree.py", "content": "# Tests for BVHNode"},
+        {"type": "create_file", "path": "./output_test/bvh_project/main.py", "content": "# Main script"},
+        {"type": "create_file", "path": "./output_test/bvh_project/README.md", "content": "# BVH Project"}
+      ]
+    }
+  }
+}
