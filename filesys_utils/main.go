@@ -260,7 +260,7 @@ func listDirectory(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallT
 
 
 	return &mcp.CallToolResultFor[ListDirectoryResult]{
-		StructuredContent: &ListDirectoryResult{Items: items},
+		StructuredContent: ListDirectoryResult{Items: items},
 		Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 	}, nil
 }
@@ -363,7 +363,7 @@ func writeFile(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolP
 	log.Printf("Successfully wrote file %s", params.Arguments.Path)
 	msg := fmt.Sprintf("Successfully wrote to file %s", params.Arguments.Path)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		StructuredContent: GenericSuccessFailureResult{Message: msg},
 		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
@@ -441,7 +441,7 @@ func readFile(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolPa
 	}
 
 	return &mcp.CallToolResultFor[ReadFileResult]{
-		StructuredContent: result,
+		StructuredContent: *result,
 		Content:           []mcp.Content{&mcp.TextContent{Text: textPreview}},
 	}, nil
 }
@@ -523,7 +523,7 @@ func moveItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolPa
 	}
 	msg := fmt.Sprintf("Successfully moved item from %s to %s", params.Arguments.SourcePath, params.Arguments.DestinationPath)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		StructuredContent: GenericSuccessFailureResult{Message: msg},
 		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
@@ -595,7 +595,7 @@ func getItemProperties(ctx context.Context, cc *mcp.ServerSession, params *mcp.C
 		props.Path, props.Type, props.Size, props.LastModified.Format(time.RFC3339), props.Permissions, props.IsReadOnly)
 
 	return &mcp.CallToolResultFor[ItemProperties]{
-		StructuredContent: props,
+		StructuredContent: *props,
 		Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 	}, nil
 }
@@ -624,7 +624,7 @@ func copyItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolPa
 	}
 	msg := fmt.Sprintf("Successfully copied item from %s to %s", params.Arguments.SourcePath, params.Arguments.DestinationPath)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		StructuredContent: GenericSuccessFailureResult{Message: msg},
 		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
@@ -793,7 +793,7 @@ func extractArchive(ctx context.Context, cc *mcp.ServerSession, params *mcp.Call
 	log.Printf("Successfully extracted archive %s to %s", params.Arguments.ArchivePath, params.Arguments.DestinationPath)
 	msg := fmt.Sprintf("Successfully extracted archive %s to %s", params.Arguments.ArchivePath, params.Arguments.DestinationPath)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		StructuredContent: GenericSuccessFailureResult{Message: msg},
 		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
@@ -990,7 +990,7 @@ func deleteItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallTool
 			log.Printf("Path %s does not exist, considering delete successful.", params.Arguments.Path)
 			msg := fmt.Sprintf("Item %s did not exist or was already deleted.", params.Arguments.Path)
 			return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-				StructuredContent: &GenericSuccessFailureResult{Message: msg},
+				StructuredContent: GenericSuccessFailureResult{Message: msg},
 				Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 			}, nil
 		}
@@ -1040,7 +1040,7 @@ func deleteItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallTool
 	log.Printf("Successfully deleted item %s", params.Arguments.Path)
 	msg := fmt.Sprintf("Successfully deleted item %s", params.Arguments.Path)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		StructuredContent: GenericSuccessFailureResult{Message: msg},
 		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
@@ -1101,7 +1101,7 @@ func createArchive(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallT
 	result := &CreateArchiveResult{PathToArchive: params.Arguments.ArchivePath}
 	textContent := fmt.Sprintf("Successfully created archive %s", params.Arguments.ArchivePath)
 	return &mcp.CallToolResultFor[CreateArchiveResult]{
-		StructuredContent: result,
+		StructuredContent: *result,
 		Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 	}, nil
 }
@@ -1261,7 +1261,7 @@ func itemExists(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallTool
 			result := &ItemExistsResult{Exists: false, Type: "not_found"}
 			textContent := fmt.Sprintf("Item %s does not exist.", params.Arguments.Path)
 			return &mcp.CallToolResultFor[ItemExistsResult]{
-				StructuredContent: result,
+				StructuredContent: *result,
 				Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 			}, nil
 		}
@@ -1281,7 +1281,7 @@ func itemExists(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallTool
 	result := &ItemExistsResult{Exists: true, Type: itemType}
 	textContent := fmt.Sprintf("Item %s exists. Type: %s.", params.Arguments.Path, itemType)
 	return &mcp.CallToolResultFor[ItemExistsResult]{
-		StructuredContent: result,
+		StructuredContent: *result,
 		Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 	}, nil
 }
