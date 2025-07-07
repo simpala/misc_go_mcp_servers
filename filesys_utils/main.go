@@ -245,8 +245,23 @@ func listDirectory(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallT
 		}, nil
 	}
 
+	// Prepare a simple text summary for the Content field
+	summary := fmt.Sprintf("Found %d items in %s.", len(items), params.Arguments.Path)
+	if len(items) > 10 {
+		summary = fmt.Sprintf("Found %d items in %s. Showing first 10 here in text, full list in structured content.", len(items), params.Arguments.Path)
+	}
+	var textItems []string
+	for i, item := range items {
+		if i < 10 { // Limit text representation
+			textItems = append(textItems, fmt.Sprintf("- %s (%s, %d bytes, mod: %s, path: %s)", item.Name, item.Type, item.Size, item.LastModified.Format(time.RFC3339), item.Path))
+		}
+	}
+	textContent := summary + "\n" + strings.Join(textItems, "\n")
+
+
 	return &mcp.CallToolResultFor[ListDirectoryResult]{
-		Result: &ListDirectoryResult{Items: items},
+		StructuredContent: &ListDirectoryResult{Items: items},
+		Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 	}, nil
 }
 
@@ -346,8 +361,10 @@ func writeFile(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolP
 	}
 
 	log.Printf("Successfully wrote file %s", params.Arguments.Path)
+	msg := fmt.Sprintf("Successfully wrote to file %s", params.Arguments.Path)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		Result: &GenericSuccessFailureResult{Message: fmt.Sprintf("Successfully wrote to file %s", params.Arguments.Path)},
+		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
 
@@ -404,11 +421,28 @@ func readFile(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolPa
 
 
 	log.Printf("Successfully read file %s, detected MIME type: %s", params.Arguments.Path, mimeType)
+	result := &ReadFileResult{
+		Content:  encodedContent,
+		MimeType: mimeType,
+	}
+	// Provide a snippet of the content in TextContent for quick preview if it's not base64
+	var textPreview string
+	if params.Arguments.Encoding != "base64" {
+		previewLen := 200
+		if len(encodedContent) < previewLen {
+			previewLen = len(encodedContent)
+		}
+		textPreview = fmt.Sprintf("Read file %s (MIME: %s). Content snippet:\n%s...", params.Arguments.Path, mimeType, encodedContent[:previewLen])
+		if len(encodedContent) <= 200 {
+			textPreview = fmt.Sprintf("Read file %s (MIME: %s). Content:\n%s", params.Arguments.Path, mimeType, encodedContent)
+		}
+	} else {
+		textPreview = fmt.Sprintf("Read file %s (MIME: %s). Content is base64 encoded (length: %d chars).", params.Arguments.Path, mimeType, len(encodedContent))
+	}
+
 	return &mcp.CallToolResultFor[ReadFileResult]{
-		Result: &ReadFileResult{
-			Content:  encodedContent,
-			MimeType: mimeType,
-		},
+		StructuredContent: result,
+		Content:           []mcp.Content{&mcp.TextContent{Text: textPreview}},
 	}, nil
 }
 
@@ -487,9 +521,10 @@ func moveItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolPa
 			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("Error moving item: %v", err)}},
 		}, nil
 	}
-
+	msg := fmt.Sprintf("Successfully moved item from %s to %s", params.Arguments.SourcePath, params.Arguments.DestinationPath)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		Result: &GenericSuccessFailureResult{Message: fmt.Sprintf("Successfully moved item from %s to %s", params.Arguments.SourcePath, params.Arguments.DestinationPath)},
+		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
 
@@ -517,44 +552,36 @@ func getItemProperties(ctx context.Context, cc *mcp.ServerSession, params *mcp.C
 	// More sophisticated methods would require platform-specific calls or cgo.
 	createdAt := info.ModTime() // Placeholder, actual creation time is hard to get portably.
 
-	// Attempt to get more detailed stat info for creation time on Unix-like systems
-	// This is a common pattern but still not universally portable / guaranteed.
-	sysStat, ok := info.Sys().(*syscall.Stat_t)
-	if ok {
-		// ctime is often birth time or metadata change time on Linux/macOS
-		// Note: This is OS-dependent.
-		// For Linux, Ctim is change time. Birth time requires Statx with STATX_BTIME.
-		// For macOS (Darwin), Ctim ( syscall.Timespec from Stat_t.Ctimespec ) can be creation time.
-		// Let's assume ModTime for wider compatibility for now, true creation time is complex.
-		// Example for macOS if needed: createdAt = time.Unix(sysStat.Ctimespec.Sec, sysStat.Ctimespec.Nsec)
-	}
-
+	// CreatedAt will use info.ModTime() for broad compatibility as true creation time is hard to get portably.
 
 	// Permissions
 	permissions := info.Mode().String()
 
-	// IsReadOnly - this is a simplified check. True read-only might depend on user context.
-	// Checking if the current user can write. This is an approximation.
-	isReadOnly := true
-	file, err := os.OpenFile(params.Arguments.Path, os.O_WRONLY, 0)
-	if err == nil {
-		isReadOnly = false
-		file.Close()
-	} else if os.IsPermission(err) {
-		isReadOnly = true
-	} else if !info.IsDir() { // If it's a file and OpenFile failed for other reasons, it might not be writeable by us
-		isReadOnly = true
-	} else { // If it's a directory, and OpenFile failed for other reasons, don't assume read-only based on this check alone
-        // A more reliable check for directory writability would be to try creating a temp file.
-        // For now, we'll rely on permissions string primarily for directories.
-        // If the user has write permission bits, it's not strictly read-only.
-        if info.Mode().Perm()&0200 != 0 { // User has write permission
-            isReadOnly = false
-        }
-    }
+	// IsReadOnly - this is a simplified check.
+	// For files, we attempt to open for writing.
+	// For directories, we check the write permission bit for the user.
+	isReadOnly := false // Assume writable by default, prove otherwise
+	if info.IsDir() {
+		if info.Mode().Perm()&0200 == 0 { // Check if User's write bit (UGO order: User, Group, Other) is NOT set
+			isReadOnly = true
+		}
+	} else { // It's a file
+		file, openErr := os.OpenFile(params.Arguments.Path, os.O_WRONLY, 0)
+		if openErr != nil {
+			if os.IsPermission(openErr) {
+				isReadOnly = true
+			}
+			// If openErr is not nil but also not a permission error,
+			// it means the file might be writable but there's another issue (e.g., already open exclusively).
+			// In this specific check for "read-only due to permissions", we only set isReadOnly=true on os.IsPermission.
+		} else {
+			// Successfully opened for writing, so it's not read-only.
+			file.Close() // Close immediately
+			isReadOnly = false
+		}
+	}
 
-
-	props := ItemProperties{
+	props := &ItemProperties{
 		Name:         info.Name(),
 		Path:         params.Arguments.Path, // Return the full path requested
 		Type:         itemType,
@@ -564,9 +591,12 @@ func getItemProperties(ctx context.Context, cc *mcp.ServerSession, params *mcp.C
 		Permissions:  permissions,
 		IsReadOnly:   isReadOnly,
 	}
+	textContent := fmt.Sprintf("Properties for %s:\nType: %s\nSize: %d bytes\nModified: %s\nPermissions: %s\nRead-Only: %t",
+		props.Path, props.Type, props.Size, props.LastModified.Format(time.RFC3339), props.Permissions, props.IsReadOnly)
 
 	return &mcp.CallToolResultFor[ItemProperties]{
-		Result: &props,
+		StructuredContent: props,
+		Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 	}, nil
 }
 
@@ -592,9 +622,10 @@ func copyItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolPa
 			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("Error copying item: %v", err)}},
 		}, nil
 	}
-
+	msg := fmt.Sprintf("Successfully copied item from %s to %s", params.Arguments.SourcePath, params.Arguments.DestinationPath)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		Result: &GenericSuccessFailureResult{Message: fmt.Sprintf("Successfully copied item from %s to %s", params.Arguments.SourcePath, params.Arguments.DestinationPath)},
+		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
 
@@ -760,8 +791,10 @@ func extractArchive(ctx context.Context, cc *mcp.ServerSession, params *mcp.Call
 	}
 
 	log.Printf("Successfully extracted archive %s to %s", params.Arguments.ArchivePath, params.Arguments.DestinationPath)
+	msg := fmt.Sprintf("Successfully extracted archive %s to %s", params.Arguments.ArchivePath, params.Arguments.DestinationPath)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		Result: &GenericSuccessFailureResult{Message: fmt.Sprintf("Successfully extracted archive %s to %s", params.Arguments.ArchivePath, params.Arguments.DestinationPath)},
+		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
 
@@ -955,8 +988,10 @@ func deleteItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallTool
 			// Or, return an error? User expectation might vary. For now, let's consider it not an error.
 			// If this needs to be an error, the IsError flag and Content should be set accordingly.
 			log.Printf("Path %s does not exist, considering delete successful.", params.Arguments.Path)
+			msg := fmt.Sprintf("Item %s did not exist or was already deleted.", params.Arguments.Path)
 			return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-				Result: &GenericSuccessFailureResult{Message: fmt.Sprintf("Item %s did not exist or was already deleted.", params.Arguments.Path)},
+				StructuredContent: &GenericSuccessFailureResult{Message: msg},
+				Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 			}, nil
 		}
 		// For other errors (e.g., permission denied to stat), return an error.
@@ -1003,8 +1038,10 @@ func deleteItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallTool
 	}
 
 	log.Printf("Successfully deleted item %s", params.Arguments.Path)
+	msg := fmt.Sprintf("Successfully deleted item %s", params.Arguments.Path)
 	return &mcp.CallToolResultFor[GenericSuccessFailureResult]{
-		Result: &GenericSuccessFailureResult{Message: fmt.Sprintf("Successfully deleted item %s", params.Arguments.Path)},
+		StructuredContent: &GenericSuccessFailureResult{Message: msg},
+		Content:           []mcp.Content{&mcp.TextContent{Text: msg}},
 	}, nil
 }
 
@@ -1061,8 +1098,11 @@ func createArchive(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallT
 			IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("Error creating archive: %v", err)}}}, nil
 	}
 
+	result := &CreateArchiveResult{PathToArchive: params.Arguments.ArchivePath}
+	textContent := fmt.Sprintf("Successfully created archive %s", params.Arguments.ArchivePath)
 	return &mcp.CallToolResultFor[CreateArchiveResult]{
-		Result: &CreateArchiveResult{PathToArchive: params.Arguments.ArchivePath},
+		StructuredContent: result,
+		Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 	}, nil
 }
 
@@ -1218,8 +1258,11 @@ func itemExists(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallTool
 	info, err := os.Stat(params.Arguments.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			result := &ItemExistsResult{Exists: false, Type: "not_found"}
+			textContent := fmt.Sprintf("Item %s does not exist.", params.Arguments.Path)
 			return &mcp.CallToolResultFor[ItemExistsResult]{
-				Result: &ItemExistsResult{Exists: false, Type: "not_found"},
+				StructuredContent: result,
+				Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 			}, nil
 		}
 		// For other errors (e.g., permission denied), we can't determine existence for sure.
@@ -1235,9 +1278,11 @@ func itemExists(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallTool
 	if info.IsDir() {
 		itemType = "directory"
 	}
-
+	result := &ItemExistsResult{Exists: true, Type: itemType}
+	textContent := fmt.Sprintf("Item %s exists. Type: %s.", params.Arguments.Path, itemType)
 	return &mcp.CallToolResultFor[ItemExistsResult]{
-		Result: &ItemExistsResult{Exists: true, Type: itemType},
+		StructuredContent: result,
+		Content:           []mcp.Content{&mcp.TextContent{Text: textContent}},
 	}, nil
 }
 
