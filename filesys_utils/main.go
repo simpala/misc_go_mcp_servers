@@ -1,13 +1,21 @@
 package main
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
 	"context"
-	"fmt"
-	"log"
-	"os"
-	"time"
-
+	"encoding/base64"
 	"flag"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -447,16 +455,8 @@ func listDirectoryRecursive(basePath string, currentPath string, items *[]FileSy
 			}
 		}
 	}
-	"io"
-	"path/filepath"
-	"encoding/base64"
-	"net/http"
-	"syscall"
-	"archive/zip"
-	"archive/tar"
-	"compress/gzip"
-	"strings"
-)
+	return nil
+}
 
 // moveItem implements the logic for the move_item tool.
 func moveItem(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolParamsFor[MoveItemArgs]) (*mcp.CallToolResultFor[GenericSuccessFailureResult], error) {
