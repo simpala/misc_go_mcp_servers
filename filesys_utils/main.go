@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -1394,11 +1395,11 @@ func main() {
 			listDirectory,
 			mcp.Input(
 				mcp.Property("path", mcp.Description("Directory path to list."), mcp.Required(true), mcp.Schema(&jsonschema.Schema{Type: "string"})),
-				mcp.Property("recursive", mcp.Description("List recursively."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: false})),
-				mcp.Property("max_depth", mcp.Description("Maximum depth for recursion."), mcp.Schema(&jsonschema.Schema{Type: "integer", Default: 0})),
-				mcp.Property("include_hidden", mcp.Description("Include hidden files/directories."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: false})),
+				mcp.Property("recursive", mcp.Description("List recursively."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: json.RawMessage("false")})),
+				mcp.Property("max_depth", mcp.Description("Maximum depth for recursion."), mcp.Schema(&jsonschema.Schema{Type: "integer", Default: json.RawMessage("0")})),
+				mcp.Property("include_hidden", mcp.Description("Include hidden files/directories."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: json.RawMessage("false")})),
 			),
-			// Output schema for ListDirectoryResult will be implicitly derived from the struct + Result field.
+			// Output schema for ListDirectoryResult will be implicitly derived from the struct + StructuredContent field.
 		),
 		// move_item
 		mcp.NewServerTool(
@@ -1418,7 +1419,7 @@ func main() {
 			mcp.Input(
 				mcp.Property("source_path", mcp.Description("Source path of the item to copy."), mcp.Required(true), mcp.Schema(&jsonschema.Schema{Type: "string"})),
 				mcp.Property("destination_path", mcp.Description("Destination path for the copy."), mcp.Required(true), mcp.Schema(&jsonschema.Schema{Type: "string"})),
-				mcp.Property("overwrite", mcp.Description("Overwrite destination if it exists."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: false})),
+				mcp.Property("overwrite", mcp.Description("Overwrite destination if it exists."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: json.RawMessage("false")})),
 			),
 		),
 		// delete_item
@@ -1428,7 +1429,7 @@ func main() {
 			deleteItem,
 			mcp.Input(
 				mcp.Property("path", mcp.Description("Path of the item to delete."), mcp.Required(true), mcp.Schema(&jsonschema.Schema{Type: "string"})),
-				mcp.Property("recursive", mcp.Description("Delete recursively (for directories)."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: false})),
+				mcp.Property("recursive", mcp.Description("Delete recursively (for directories)."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: json.RawMessage("false")})),
 			),
 		),
 		// read_file
@@ -1449,7 +1450,7 @@ func main() {
 			mcp.Input(
 				mcp.Property("path", mcp.Description("Path of the file to write."), mcp.Required(true), mcp.Schema(&jsonschema.Schema{Type: "string"})),
 				mcp.Property("content", mcp.Description("Content to write."), mcp.Required(true), mcp.Schema(&jsonschema.Schema{Type: "string"})),
-				mcp.Property("append", mcp.Description("Append to the file if it exists, otherwise overwrite."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: false})),
+				mcp.Property("append", mcp.Description("Append to the file if it exists, otherwise overwrite."), mcp.Schema(&jsonschema.Schema{Type: "boolean", Default: json.RawMessage("false")})),
 				mcp.Property("encoding", mcp.Description("Encoding of the input content ('utf-8' or 'base64'). Assumes 'utf-8' if not specified."), mcp.Schema(&jsonschema.Schema{Type: "string", Enum: []any{"utf-8", "base64"}})),
 			),
 		),
