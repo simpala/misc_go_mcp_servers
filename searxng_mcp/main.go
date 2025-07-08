@@ -33,7 +33,15 @@ func main() {
 	)
 	server.AddTools(searxngWebSearchTool)
 
-	// 3. Create and add the web_url_read tool
+	// 3. Create and add the searxng_category_search tool
+	searxngCategorySearchTool := mcp.NewServerTool(
+		"searxng_category_search",
+		"Execute web searches within a specific category (e.g., images, videos, news).",
+		searxngCategorySearchHandler,
+	)
+	server.AddTools(searxngCategorySearchTool)
+
+	// 4. Create and add the web_url_read tool
 	webURLReadTool := mcp.NewServerTool(
 		"web_url_read",
 		"Read and convert the content from a URL to markdown.",

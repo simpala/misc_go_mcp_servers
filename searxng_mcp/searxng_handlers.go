@@ -14,7 +14,6 @@ import (
 	"time"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/JohannesKaufmann/html-to-markdown/plugin"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	// "github.com/modelcontextprotocol/go-sdk/mcp" // This can be removed if not used elsewhere
 )
@@ -178,7 +177,7 @@ func webURLReadHandler(ctx context.Context, ss *mcp.ServerSession, params *mcp.C
 	}
 
 	converter := md.NewConverter("", true, nil)
-	converter.Use(plugin.AbsoluteLinks(input.URL))
+	//converter.Use(plugin.AbsoluteLinks(input.URL))
 
 	markdown, err := converter.ConvertString(string(htmlBody))
 	if err != nil {
@@ -205,3 +204,116 @@ func webURLReadHandler(ctx context.Context, ss *mcp.ServerSession, params *mcp.C
 }
 
 var titleRegex = regexp.MustCompile(`(?i)<title>(.*?)</title>`)
+
+func searxngCategorySearchHandler(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallToolParamsFor[SearxngCategorySearchInput]) (*mcp.CallToolResultFor[SearxngCategorySearchOutput], error) {
+	input := params.Arguments
+	if input.Query == "" {
+		return nil, fmt.Errorf("search query cannot be empty")
+	}
+	if input.Category == "" {
+		return nil, fmt.Errorf("search category cannot be empty")
+	}
+
+	apiURL := getSearxngURL()
+	if !strings.HasSuffix(apiURL, "/") {
+		apiURL += "/"
+	}
+
+	queryParams := url.Values{}
+	queryParams.Set("q", input.Query)
+	queryParams.Set("categories", input.Category) // Use the category from input
+	queryParams.Set("format", "json")
+
+	// Optional parameters
+	if input.PageNo != nil && *input.PageNo > 0 {
+		queryParams.Set("pageno", strconv.Itoa(*input.PageNo))
+	}
+	if input.TimeRange != nil && *input.TimeRange != "" {
+		queryParams.Set("time_range", *input.TimeRange)
+	}
+	if input.Language != nil && *input.Language != "" {
+		queryParams.Set("languages", *input.Language)
+	}
+	if input.SafeSearch != nil {
+		queryParams.Set("safesearch", strconv.Itoa(*input.SafeSearch))
+	}
+
+	fullURL := apiURL + "?" + queryParams.Encode()
+	if ss != nil {
+		ss.Log(ctx, &mcp.LoggingMessageParams{Level: "debug", Data: fmt.Sprintf("Calling SearXNG (category search): %s", fullURL)})
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SearXNG category search request: %w", err)
+	}
+
+	authUsername := os.Getenv("AUTH_USERNAME")
+	authPassword := os.Getenv("AUTH_PASSWORD")
+	if authUsername != "" && authPassword != "" {
+		req.SetBasicAuth(authUsername, authPassword)
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute SearXNG category search request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("SearXNG category search request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var searxngResp SearxngAPIResponse
+	if err := json.NewDecoder(resp.Body).Decode(&searxngResp); err != nil {
+		return nil, fmt.Errorf("failed to decode SearXNG category search JSON response: %w", err)
+	}
+
+	output := SearxngCategorySearchOutput{
+		Results:  searxngResp.Results,
+		Query:    searxngResp.Query,
+		Category: input.Category, // Echo back the requested category
+	}
+	if searxngResp.NumberOfResults != nil {
+		output.NumberOfResults = *searxngResp.NumberOfResults
+	}
+	if input.PageNo != nil {
+		output.CurrentPage = input.PageNo
+	}
+
+	var textResults []string
+	for i, res := range output.Results {
+		if i < 5 { // Limit text output similarly to general search
+			var parts []string
+			parts = append(parts, fmt.Sprintf("%d. %s", i+1, res.Title))
+			if res.URL != "" {
+				parts = append(parts, fmt.Sprintf("   URL: %s", res.URL))
+			}
+			if res.Content != "" {
+				parts = append(parts, fmt.Sprintf("   Content: %s", res.Content))
+			}
+			if res.ImgSrc != "" { // Specific for image results, but good to have
+				parts = append(parts, fmt.Sprintf("   Image Source: %s", res.ImgSrc))
+			}
+			textResults = append(textResults, strings.Join(parts, "\n"))
+		}
+	}
+	textContent := strings.Join(textResults, "\n---\n")
+	if len(output.Results) > 5 {
+		textContent += fmt.Sprintf("\n... and %d more results.", len(output.Results)-5)
+	}
+	if len(output.Results) == 0 {
+		textContent = fmt.Sprintf("No results found for query '%s' in category '%s'.", input.Query, input.Category)
+	} else {
+		textContent = fmt.Sprintf("Found %d results for '%s' in category '%s':\n%s", output.NumberOfResults, input.Query, input.Category, textContent)
+	}
+
+	return &mcp.CallToolResultFor[SearxngCategorySearchOutput]{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: textContent},
+		},
+		StructuredContent: output,
+	}, nil
+}
